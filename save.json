@@ -1,1 +1,1 @@
-{"coins": 10, "owned": ["Classic", "Red", "Blue", "Green"], "selected": "Green", "music_vol": 0.5, "sfx_vol": 1.0, "play_ms": 32728, "best": 60}
+{"coins": 266, "owned": ["Classic", "Red", "Blue", "Green", "Purple"], "selected": "Purple", "music_vol": 0.5, "sfx_vol": 1.0, "play_ms": 37260, "best": 70, "pipe_coins": 231, "achievements": ["first_flight", "close_call", "pipe_dodger", "pipe_legend", "coin_collector", "fashion_bird"]}

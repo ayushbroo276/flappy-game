@@ -1,0 +1,26 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # also lets you press "Run workflow" by hand
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Build the APK with Buildozer
+        uses: ArtemSBulgakov/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          buildozer_version: stable
+
+      - name: Save the APK so you can download it
+        uses: actions/upload-artifact@v4
+        with:
+          name: flappy-apk
+          path: ${{ steps.buildozer.outputs.filename }}
