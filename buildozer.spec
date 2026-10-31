@@ -7,7 +7,7 @@ source.dir = .
 source.include_exts = py,jpg,jpeg,png,wav,ogg,mp3,json,ttf
 source.exclude_dirs = .git,.buildozer,bin,__pycache__,build,dist
 version = 1.0.0
-requirements = python3,pygame2,pyjnius
+requirements = python3,pygame,pyjnius
 
 orientation = portrait
 fullscreen = 1

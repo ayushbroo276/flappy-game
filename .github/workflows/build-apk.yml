@@ -15,19 +15,48 @@ jobs:
       - name: Get the code
         uses: actions/checkout@v4
 
-      - name: Build APK with buildozer-action
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
-          command: android debug
-          workdir: .
-          buildozer_version: stable
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Android build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf \
+            cmake \
+            libffi-dev \
+            libltdl-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            libssl-dev \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            unzip \
+            zip
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install buildozer "Cython==0.29.36"
+
+      - name: Build Android APK
+        run: buildozer android debug
 
       - name: Save the APK so you can download it
         uses: actions/upload-artifact@v4
         with:
           name: flappy-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
+          if-no-files-found: error
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
@@ -36,6 +65,6 @@ jobs:
           tag_name: android-latest
           name: "Flappy Game Android APK"
           body: "Direct download for the latest Flappy Game Android APK. Download on your phone and tap to install!"
-          files: ${{ steps.buildozer.outputs.filename }}
+          files: bin/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
