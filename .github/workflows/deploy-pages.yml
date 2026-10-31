@@ -34,6 +34,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install pygbag
 
+      - name: Convert MP3 music to OGG for browser compatibility
+        run: |
+          sudo apt-get install -y ffmpeg
+          for f in *.mp3; do
+            base="${f%.mp3}"
+            if [ ! -f "${base}.ogg" ]; then
+              ffmpeg -i "$f" -c:a libvorbis -q:a 4 "${base}.ogg"
+              echo "Converted $f -> ${base}.ogg"
+            fi
+          done
+
       - name: Build web game with pygbag
         env:
           PYTHONUTF8: "1"
