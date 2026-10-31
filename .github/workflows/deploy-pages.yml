@@ -35,8 +35,10 @@ jobs:
           pip install pygbag "pygame-ce"
 
       - name: Build web game with pygbag
+        env:
+          PYTHONUTF8: "1"
         run: |
-          python -m pygbag --build main.py
+          python -m pygbag --build --disable-sound-format-error .
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
