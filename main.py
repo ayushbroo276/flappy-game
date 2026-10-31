@@ -261,9 +261,9 @@ def load_background(file_name):
 
 
 def find_music(file_name):
-    """Finds the song file. The web only plays .ogg; desktop also allows mp3/wav."""
+    """Finds the song file. Supports .ogg, .mp3, and .wav across web and mobile."""
     stem, _ = os.path.splitext(file_name)
-    extensions = (".ogg",) if WEB else (".ogg", ".mp3", ".wav")
+    extensions = (".ogg", ".mp3", ".wav")
     for ext in extensions:
         path = file_path(stem + ext)
         if os.path.exists(path):
