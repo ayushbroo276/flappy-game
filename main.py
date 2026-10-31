@@ -105,7 +105,7 @@ RESUME_COUNTDOWN_MS = 3000   # 3 second countdown after pressing Resume
 RAGE_SCORE = 15              # RAGE MODE starts at this score
 
 GAME_TITLE = "Modi Flappy"
-WIDTH = 405 if ANDROID else 400
+WIDTH = 400
 BASE_HEIGHT = 600
 FPS = 60
 
@@ -135,14 +135,8 @@ if ANDROID:
     DISPLAY_WIDTH, DISPLAY_HEIGHT = display.get_size()
     if DISPLAY_WIDTH <= 0 or DISPLAY_HEIGHT <= 0:
         raise RuntimeError(f"Android returned an invalid display size: {display.get_size()}")
-    HEIGHT = WIDTH * 16 // 9
+    HEIGHT = max(BASE_HEIGHT, round(WIDTH * DISPLAY_HEIGHT / DISPLAY_WIDTH))
     screen = pygame.Surface((WIDTH, HEIGHT))
-    render_scale = min(DISPLAY_WIDTH / WIDTH, DISPLAY_HEIGHT / HEIGHT)
-    render_width = round(WIDTH * render_scale)
-    render_height = round(HEIGHT * render_scale)
-    display_rect = pygame.Rect(0, 0, render_width, render_height)
-    display_rect.center = display.get_rect().center
-    scaled_screen = pygame.Surface(display_rect.size)
 else:
     HEIGHT = BASE_HEIGHT
     display = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -158,8 +152,8 @@ def game_position(position):
     if not ANDROID:
         return position
     return (
-        round((position[0] - display_rect.x) * WIDTH / display_rect.width),
-        round((position[1] - display_rect.y) * HEIGHT / display_rect.height),
+        round(position[0] * WIDTH / DISPLAY_WIDTH),
+        round(position[1] * HEIGHT / DISPLAY_HEIGHT),
     )
 
 
@@ -1264,9 +1258,7 @@ async def main():
         draw_toasts()
 
         if ANDROID:
-            display.fill((0, 0, 0))
-            pygame.transform.scale(screen, display_rect.size, scaled_screen)
-            display.blit(scaled_screen, display_rect)
+            pygame.transform.scale(screen, display.get_size(), display)
         pygame.display.flip()
         await asyncio.sleep(0)  # REQUIRED for the web: lets the browser breathe
 

@@ -16,7 +16,7 @@ A portrait arcade game with separate Android and PC game versions. Guide your bi
 
 ## Features
 
-- Android gameplay uses a 9:16 portrait view, scaled proportionally to the phone display.
+- Android gameplay fills the phone's portrait display.
 - Coins to collect during a run, plus play-time rewards.
 - A character shop with distinct perks: wider gaps, slower falling, a coin magnet, or double coins.
 - Shield power-ups, achievements, saved progress, and a personal best score.
