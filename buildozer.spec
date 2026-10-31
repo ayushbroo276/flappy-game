@@ -1,11 +1,12 @@
 [app]
 
-title = Flappy Game
+title = Modi Flappy
 package.name = flappygame
 package.domain = org.flappybird
 source.dir = .
 source.include_exts = py,jpg,jpeg,png,wav,ogg,mp3,json,ttf
 source.exclude_dirs = .git,.buildozer,bin,__pycache__,build,dist
+presplash.filename = %(source.dir)s/death_4.jpg
 version = 1.0.0
 requirements = python3,pygame,pyjnius
 

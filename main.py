@@ -104,8 +104,43 @@ MS_PER_REWARD = 60000        # ...for every 60,000 ms (1 minute) of play
 RESUME_COUNTDOWN_MS = 3000   # 3 second countdown after pressing Resume
 RAGE_SCORE = 15              # RAGE MODE starts at this score
 
-WIDTH, HEIGHT = 400, 600
+GAME_TITLE = "Modi Flappy"
+WIDTH = 400
+BASE_HEIGHT = 600
 FPS = 60
+
+pygame.mixer.pre_init(44100, -16, 2, 1024 if ANDROID else 512)
+pygame.init()
+
+
+def get_game_height():
+    if not ANDROID:
+        return BASE_HEIGHT
+
+    try:
+        sizes = pygame.display.get_desktop_sizes()
+    except pygame.error as exc:
+        print(f"Could not read the phone display size: {exc}")
+        sizes = []
+
+    if sizes:
+        display_width, display_height = sizes[0]
+    else:
+        display_info = pygame.display.Info()
+        display_width = display_info.current_w
+        display_height = display_info.current_h
+
+    if display_width <= 0 or display_height <= 0:
+        return BASE_HEIGHT
+    return max(BASE_HEIGHT, round(WIDTH * display_height / display_width))
+
+
+HEIGHT = get_game_height()
+
+
+def ui_y(y):
+    return round(y * HEIGHT / BASE_HEIGHT)
+
 
 # Physics (pixels and seconds, so it feels the same on every screen/phone)
 GRAVITY = 1620.0
@@ -147,14 +182,12 @@ def save_path():
     return os.path.join(SAVE_DIR, SAVE_FILE)
 
 
-pygame.mixer.pre_init(44100, -16, 2, 1024 if ANDROID else 512)
-pygame.init()
 if ANDROID:
-    # SCALED stretches our 400x600 game to fit any phone screen (touch is scaled too)
+    # Match the logical viewport to the phone's portrait aspect ratio.
     screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED)
 else:
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Flappy Game")
+pygame.display.set_caption(GAME_TITLE)
 clock = pygame.time.Clock()
 # Font(None, size) uses pygame's built-in font, which works in the browser too
 title_font = pygame.font.Font(None, 64)
@@ -322,6 +355,28 @@ for c in CHARACTERS:
     bg_imgs[c["name"]] = load_background(c["background"]) or default_bg
 
 
+def load_cover_background(file_name):
+    path = find_image(file_name)
+    if not path:
+        print(f"{file_name} not found; using the default title background.")
+        return default_bg
+    try:
+        image = pygame.image.load(path).convert()
+        image_width, image_height = image.get_size()
+        scale = max(WIDTH / image_width, HEIGHT / image_height)
+        scaled_size = (round(image_width * scale), round(image_height * scale))
+        scaled = scale_image(image, scaled_size)
+        crop = pygame.Rect(0, 0, WIDTH, HEIGHT)
+        crop.center = scaled.get_rect().center
+        return scaled.subsurface(crop).copy()
+    except pygame.error as exc:
+        print(f"Could not load {file_name} as the title background: {exc}")
+        return default_bg
+
+
+cover_bg = load_cover_background("death_4.jpg")
+
+
 def current_bg():
     return bg_imgs[save["selected"]]
 
@@ -447,7 +502,7 @@ buttons = []          # filled every frame by button()
 toasts = []           # small pop-up messages: [text, ms_left]
 last_death_msg = ""
 
-LIST_AREA = pygame.Rect(10, 85, 380, 415)
+LIST_AREA = pygame.Rect(10, ui_y(85), 380, ui_y(500) - ui_y(85))
 ROW_H = 76
 ROW_PITCH = 82
 
@@ -647,7 +702,7 @@ def share_score():
     g = game
     if not g:
         return
-    text = f"I scored {g['score']} in Flappy Game as the {save['selected']} bird! Can you beat me?"
+    text = f"I scored {g['score']} in {GAME_TITLE} as the {save['selected']} bird! Can you beat me?"
     if GAME_URL:
         text += " " + GAME_URL
     if WEB:
@@ -925,10 +980,11 @@ def draw_toasts():
 
 # ---------------- Scenes ----------------
 def draw_menu():
-    draw_menu_background()
-    draw_text("FLAPPY GAME", title_font, (WIDTH // 2, 80))
-    draw_text(f"Coins: {save['coins']}", small_font, (WIDTH // 2, 130), (255, 215, 0))
-    draw_text(f"Best score: {save['best']}", tiny_font, (WIDTH // 2, 155))
+    screen.blit(cover_bg, (0, 0))
+    screen.blit(overlay, (0, 0))
+    draw_text(GAME_TITLE.upper(), title_font, (WIDTH // 2, ui_y(80)))
+    draw_text(f"Coins: {save['coins']}", small_font, (WIDTH // 2, ui_y(130)), (255, 215, 0))
+    draw_text(f"Best score: {save['best']}", tiny_font, (WIDTH // 2, ui_y(155)))
 
     items = []
     if resume_available():
@@ -941,37 +997,39 @@ def draw_menu():
     ]
     if not WEB:  # a Quit button makes no sense inside a web page
         items.append(("Quit", quit_game))
-    y = 185
+    y = ui_y(185)
+    button_step = ui_y(245) - ui_y(185)
     for label, action in items:
         button(pygame.Rect(WIDTH // 2 - 110, y, 220, 48), label, action)
-        y += 60
+        y += button_step
 
 
 def draw_settings():
     draw_menu_background()
-    draw_text("SETTINGS", font, (WIDTH // 2, 60))
+    draw_text("SETTINGS", font, (WIDTH // 2, ui_y(60)))
 
     rows = [("Music volume", "music_vol", 160), ("Sound effects volume", "sfx_vol", 290)]
     for label, key, y in rows:
-        draw_text(label, small_font, (WIDTH // 2, y))
+        draw_text(label, small_font, (WIDTH // 2, ui_y(y)))
         pct = int(round(save[key] * 100))
-        button(pygame.Rect(60, y + 30, 60, 50), "-", lambda k=key: change_volume(k, -0.1))
-        draw_text(f"{pct}%", button_font, (WIDTH // 2, y + 55))
-        button(pygame.Rect(280, y + 30, 60, 50), "+", lambda k=key: change_volume(k, 0.1))
+        button(pygame.Rect(60, ui_y(y + 30), 60, 50), "-", lambda k=key: change_volume(k, -0.1))
+        draw_text(f"{pct}%", button_font, (WIDTH // 2, ui_y(y + 55)))
+        button(pygame.Rect(280, ui_y(y + 30), 60, 50), "+", lambda k=key: change_volume(k, 0.1))
 
-    draw_text("Your progress is saved automatically.", tiny_font, (WIDTH // 2, 430))
-    button(pygame.Rect(WIDTH // 2 - 90, 500, 180, 50), "Back", lambda: go("menu"))
+    draw_text("Your progress is saved automatically.", tiny_font, (WIDTH // 2, ui_y(430)))
+    button(pygame.Rect(WIDTH // 2 - 90, ui_y(500), 180, 50), "Back", lambda: go("menu"))
 
 
 def draw_achievements():
     draw_menu_background()
-    draw_text("ACHIEVEMENTS", font, (WIDTH // 2, 42))
+    draw_text("ACHIEVEMENTS", font, (WIDTH // 2, ui_y(42)))
     done = len(save["achievements"])
-    draw_text(f"{done}/{len(ACHIEVEMENTS)} unlocked", tiny_font, (WIDTH // 2, 78))
-    y = 105
+    draw_text(f"{done}/{len(ACHIEVEMENTS)} unlocked", tiny_font, (WIDTH // 2, ui_y(78)))
+    y = ui_y(105)
+    row_step = ui_y(171) - ui_y(105)
     for key, name, desc in ACHIEVEMENTS:
         unlocked = key in save["achievements"]
-        row = pygame.Rect(20, y, 360, 58)
+        row = pygame.Rect(20, y, 360, ui_y(58))
         pygame.draw.rect(screen, (30, 30, 50), row, border_radius=12)
         pygame.draw.rect(screen, (255, 215, 0) if unlocked else (120, 120, 120), row, 2, border_radius=12)
         pygame.draw.circle(screen, (70, 200, 100) if unlocked else (90, 90, 90), (row.x + 30, row.centery), 15)
@@ -980,38 +1038,38 @@ def draw_achievements():
                 screen, (255, 255, 255), False,
                 [(row.x + 23, row.centery), (row.x + 28, row.centery + 6), (row.x + 38, row.centery - 6)], 3,
             )
-        draw_text(name, small_font, (row.x + 58, row.y + 8), anchor="topleft")
-        draw_text(desc, tiny_font, (row.x + 58, row.y + 34), (200, 200, 200), anchor="topleft")
-        y += 66
-    button(pygame.Rect(WIDTH // 2 - 90, 530, 180, 50), "Back", lambda: go("menu"))
+        draw_text(name, small_font, (row.x + 58, row.y + ui_y(8)), anchor="topleft")
+        draw_text(desc, tiny_font, (row.x + 58, row.y + ui_y(34)), (200, 200, 200), anchor="topleft")
+        y += row_step
+    button(pygame.Rect(WIDTH // 2 - 90, ui_y(530), 180, 50), "Back", lambda: go("menu"))
 
 
 def draw_shop():
     global shop_scroll
     draw_menu_background()
-    draw_text("SHOP", font, (15, 12), anchor="topleft")
-    draw_text(f"Coins: {save['coins']}", small_font, (WIDTH - 15, 20), (255, 215, 0), anchor="topright")
-    draw_text("Collect coins in the pipes + 10 coins per minute played!", tiny_font, (WIDTH // 2, 68))
+    draw_text("SHOP", font, (15, ui_y(12)), anchor="topleft")
+    draw_text(f"Coins: {save['coins']}", small_font, (WIDTH - 15, ui_y(20)), (255, 215, 0), anchor="topright")
+    draw_text("Collect coins in the pipes + 10 coins per minute played!", tiny_font, (WIDTH // 2, ui_y(68)))
 
-    max_scroll = max(0, len(CHARACTERS) * ROW_PITCH - LIST_AREA.height)
+    max_scroll = max(0, len(CHARACTERS) * ui_y(ROW_PITCH) - LIST_AREA.height)
     shop_scroll = max(0, min(shop_scroll, max_scroll))
 
     screen.set_clip(LIST_AREA)
     for i, char in enumerate(CHARACTERS):
         name = char["name"]
-        row = pygame.Rect(LIST_AREA.x, LIST_AREA.y + i * ROW_PITCH - shop_scroll, LIST_AREA.width, ROW_H)
+        row = pygame.Rect(LIST_AREA.x, LIST_AREA.y + i * ui_y(ROW_PITCH) - shop_scroll, LIST_AREA.width, ui_y(ROW_H))
         pygame.draw.rect(screen, (30, 30, 50), row, border_radius=12)
         pygame.draw.rect(screen, (255, 255, 255), row, 2, border_radius=12)
-        screen.blit(char_previews[name], (row.x + 12, row.y + 16))
-        draw_text(name, button_font, (row.x + 70, row.y + 6), anchor="topleft")
-        draw_text(char.get("perk", ""), tiny_font, (row.x + 70, row.y + 32), (170, 210, 255), anchor="topleft")
+        screen.blit(char_previews[name], (row.x + 12, row.y + ui_y(16)))
+        draw_text(name, button_font, (row.x + 70, row.y + ui_y(6)), anchor="topleft")
+        draw_text(char.get("perk", ""), tiny_font, (row.x + 70, row.y + ui_y(32)), (170, 210, 255), anchor="topleft")
 
         owned = name in save["owned"]
         selected = save["selected"] == name
-        btn = pygame.Rect(row.right - 110, row.y + 18, 98, 40)
+        btn = pygame.Rect(row.right - 110, row.y + ui_y(18), 98, ui_y(40))
         if owned:
             status = "Owned" if char["price"] > 0 else "Free"
-            draw_text(status, tiny_font, (row.x + 70, row.y + 52), (150, 255, 150), anchor="topleft")
+            draw_text(status, tiny_font, (row.x + 70, row.y + ui_y(52)), (150, 255, 150), anchor="topleft")
             if selected:
                 button(btn, "Selected", lambda: None, enabled=False, clip=LIST_AREA)
             else:
@@ -1019,13 +1077,13 @@ def draw_shop():
         else:
             can_buy = save["coins"] >= char["price"]
             color = (255, 215, 0) if can_buy else (255, 120, 120)
-            draw_text(f"{char['price']} coins", tiny_font, (row.x + 70, row.y + 52), color, anchor="topleft")
+            draw_text(f"{char['price']} coins", tiny_font, (row.x + 70, row.y + ui_y(52)), color, anchor="topleft")
             button(btn, "Buy", lambda n=name: buy(n), enabled=can_buy, clip=LIST_AREA)
     screen.set_clip(None)
 
     if max_scroll > 0:
-        draw_text("Scroll to see more", tiny_font, (WIDTH // 2, 508))
-    button(pygame.Rect(WIDTH // 2 - 90, 530, 180, 50), "Back", lambda: go("menu"))
+        draw_text("Scroll to see more", tiny_font, (WIDTH // 2, ui_y(508)))
+    button(pygame.Rect(WIDTH // 2 - 90, ui_y(530), 180, 50), "Back", lambda: go("menu"))
 
 
 def draw_pipe(pipe):
@@ -1104,7 +1162,7 @@ def draw_world(g):
 
 def draw_death_panel(g):
     text, image_file = g["death_msg"]
-    panel_rect = death_panel.get_rect(center=(WIDTH // 2, 300))
+    panel_rect = death_panel.get_rect(center=(WIDTH // 2, HEIGHT // 2))
     screen.blit(death_panel, panel_rect)
     draw_text("GAME OVER", font, (WIDTH // 2, panel_rect.y + 30), (255, 90, 90))
 
