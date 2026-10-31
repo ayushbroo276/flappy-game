@@ -112,34 +112,49 @@ FPS = 60
 pygame.mixer.pre_init(44100, -16, 2, 1024 if ANDROID else 512)
 pygame.init()
 
-
-def get_game_height():
-    if not ANDROID:
-        return BASE_HEIGHT
-
+if ANDROID:
     try:
-        sizes = pygame.display.get_desktop_sizes()
-    except pygame.error as exc:
-        print(f"Could not read the phone display size: {exc}")
-        sizes = []
+        from jnius import autoclass
 
-    if sizes:
-        display_width, display_height = sizes[0]
-    else:
-        display_info = pygame.display.Info()
-        display_width = display_info.current_w
-        display_height = display_info.current_h
+        View = autoclass("android.view.View")
+        PythonActivity = autoclass("org.kivy.android.PythonActivity")
+        decor_view = PythonActivity.mActivity.getWindow().getDecorView()
+        immersive_flags = (
+            View.SYSTEM_UI_FLAG_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        )
+        decor_view.setSystemUiVisibility(immersive_flags)
+    except Exception as exc:
+        print(f"Could not hide the Android system bars: {exc}")
 
-    if display_width <= 0 or display_height <= 0:
-        return BASE_HEIGHT
-    return max(BASE_HEIGHT, round(WIDTH * display_height / display_width))
-
-
-HEIGHT = get_game_height()
+    display = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+    DISPLAY_WIDTH, DISPLAY_HEIGHT = display.get_size()
+    if DISPLAY_WIDTH <= 0 or DISPLAY_HEIGHT <= 0:
+        raise RuntimeError(f"Android returned an invalid display size: {display.get_size()}")
+    HEIGHT = max(BASE_HEIGHT, round(WIDTH * DISPLAY_HEIGHT / DISPLAY_WIDTH))
+    screen = pygame.Surface((WIDTH, HEIGHT))
+else:
+    HEIGHT = BASE_HEIGHT
+    display = pygame.display.set_mode((WIDTH, HEIGHT))
+    DISPLAY_WIDTH, DISPLAY_HEIGHT = display.get_size()
+    screen = display
 
 
 def ui_y(y):
     return round(y * HEIGHT / BASE_HEIGHT)
+
+
+def game_position(position):
+    if not ANDROID:
+        return position
+    return (
+        round(position[0] * WIDTH / DISPLAY_WIDTH),
+        round(position[1] * HEIGHT / DISPLAY_HEIGHT),
+    )
 
 
 # Physics (pixels and seconds, so it feels the same on every screen/phone)
@@ -182,11 +197,6 @@ def save_path():
     return os.path.join(SAVE_DIR, SAVE_FILE)
 
 
-if ANDROID:
-    # Match the logical viewport to the phone's portrait aspect ratio.
-    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED)
-else:
-    screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption(GAME_TITLE)
 clock = pygame.time.Clock()
 # Font(None, size) uses pygame's built-in font, which works in the browser too
@@ -353,28 +363,6 @@ if default_bg is None:
 bg_imgs = {}
 for c in CHARACTERS:
     bg_imgs[c["name"]] = load_background(c["background"]) or default_bg
-
-
-def load_cover_background(file_name):
-    path = find_image(file_name)
-    if not path:
-        print(f"{file_name} not found; using the default title background.")
-        return default_bg
-    try:
-        image = pygame.image.load(path).convert()
-        image_width, image_height = image.get_size()
-        scale = max(WIDTH / image_width, HEIGHT / image_height)
-        scaled_size = (round(image_width * scale), round(image_height * scale))
-        scaled = scale_image(image, scaled_size)
-        crop = pygame.Rect(0, 0, WIDTH, HEIGHT)
-        crop.center = scaled.get_rect().center
-        return scaled.subsurface(crop).copy()
-    except pygame.error as exc:
-        print(f"Could not load {file_name} as the title background: {exc}")
-        return default_bg
-
-
-cover_bg = load_cover_background("death_4.jpg")
 
 
 def current_bg():
@@ -938,7 +926,7 @@ def wrap_text(text, fnt, max_width):
 
 
 def button(rect, label, action, enabled=True, clip=None):
-    hover = enabled and rect.collidepoint(pygame.mouse.get_pos())
+    hover = enabled and rect.collidepoint(game_position(pygame.mouse.get_pos()))
     if not enabled:
         color = (90, 90, 90)
     elif hover:
@@ -980,9 +968,8 @@ def draw_toasts():
 
 # ---------------- Scenes ----------------
 def draw_menu():
-    screen.blit(cover_bg, (0, 0))
-    screen.blit(overlay, (0, 0))
-    draw_text(GAME_TITLE.upper(), title_font, (WIDTH // 2, ui_y(80)))
+    draw_menu_background()
+    draw_text("FLAPPY GAME", title_font, (WIDTH // 2, ui_y(80)))
     draw_text(f"Coins: {save['coins']}", small_font, (WIDTH // 2, ui_y(130)), (255, 215, 0))
     draw_text(f"Best score: {save['best']}", tiny_font, (WIDTH // 2, ui_y(155)))
 
@@ -1244,13 +1231,14 @@ async def main():
                 if event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_UP):
                     flap()
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    position = game_position(event.pos)
                     if game["phase"] == "dead":
-                        if not click_buttons(event.pos):
+                        if not click_buttons(position):
                             flap()
                     else:
                         flap()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                click_buttons(event.pos)
+                click_buttons(game_position(event.pos))
 
         update_toasts(dt_ms)
         if scene == "game" and game:
@@ -1269,6 +1257,8 @@ async def main():
             draw_game()
         draw_toasts()
 
+        if ANDROID:
+            pygame.transform.scale(screen, display.get_size(), display)
         pygame.display.flip()
         await asyncio.sleep(0)  # REQUIRED for the web: lets the browser breathe
 
