@@ -941,13 +941,26 @@ def button(rect, label, action, enabled=True, clip=None):
 
 
 def click_buttons(pos):
-    """Runs the button under the mouse. Returns True if a button was clicked."""
-    for rect, action in buttons:
-        if rect.collidepoint(pos):
-            buttons.clear()
-            action()
-            return True
-    return False
+    """Runs the closest button under the pointer, with forgiving Android touch targets."""
+    hit_padding = 48 if ANDROID else 0
+    candidates = [
+        (rect, action)
+        for rect, action in buttons
+        if rect.inflate(hit_padding, hit_padding).collidepoint(pos)
+    ]
+    if not candidates:
+        return False
+
+    rect, action = min(
+        candidates,
+        key=lambda candidate: (
+            (candidate[0].centerx - pos[0]) ** 2
+            + (candidate[0].centery - pos[1]) ** 2
+        ),
+    )
+    buttons.clear()
+    action()
+    return True
 
 
 def draw_menu_background():
@@ -1184,9 +1197,13 @@ def draw_game():
     pygame.draw.rect(screen, (40, 40, 40), (10, 32, 100, 8))
     fill = int(100 * save["play_ms"] / MS_PER_REWARD)
     pygame.draw.rect(screen, (255, 215, 0), (10, 32, fill, 8))
-    draw_text("ESC = menu", tiny_font, (WIDTH - 10, 10), anchor="topright")
+    if ANDROID:
+        button(pygame.Rect(WIDTH - 94, 8, 84, 44), "Menu", pause_to_menu)
+    else:
+        draw_text("ESC = menu", tiny_font, (WIDTH - 10, 10), anchor="topright")
     if g["shield"]:
-        draw_text("SHIELD", tiny_font, (WIDTH - 10, 30), (150, 220, 255), anchor="topright")
+        shield_y = 60 if ANDROID else 30
+        draw_text("SHIELD", tiny_font, (WIDTH - 10, shield_y), (150, 220, 255), anchor="topright")
 
     if g["banner_ms"] > 0:
         bump = 1 + int(4 * math.sin(g["banner_ms"] / 80.0))
@@ -1232,11 +1249,9 @@ async def main():
                     flap()
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     position = game_position(event.pos)
-                    if game["phase"] == "dead":
-                        if not click_buttons(position):
+                    if not click_buttons(position):
+                        if game["phase"] == "dead":
                             flap()
-                    else:
-                        flap()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 click_buttons(game_position(event.pos))
 

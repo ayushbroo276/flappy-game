@@ -11,7 +11,8 @@ A portrait arcade game with separate Android and PC game versions. Guide your bi
 ## Controls
 
 - Tap or click, or press **Space** / **Up**, to flap.
-- Press **Esc** or the Android **Back** button to return to the menu.
+- On Android, tap the on-screen **Menu** button or press the phone's **Back** button to return to the menu. Android buttons have forgiving touch targets.
+- On PC, press **Esc** to return to the menu.
 - In the shop, scroll to browse characters.
 
 ## Features
