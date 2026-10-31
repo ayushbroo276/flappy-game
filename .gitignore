@@ -3,5 +3,10 @@ bin/
 build/
 dist/
 __pycache__/
-*.pyc
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
 main.spec
