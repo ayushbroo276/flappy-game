@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     branches: [main]
-  workflow_dispatch:   # also lets you press "Run workflow" by hand
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,15 +12,46 @@ jobs:
       - name: Get the code
         uses: actions/checkout@v4
 
-      - name: Build the APK with Buildozer
-        uses: ArtemSBulgakov/buildozer-action@v1
-        id: buildozer
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          command: buildozer android debug
-          buildozer_version: stable
+          python-version: "3.11"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev \
+            libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev \
+            build-essential ccache
+          sudo apt-get install -y libtinfo5 || true
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          pip install --upgrade buildozer "cython==0.29.36" virtualenv setuptools
+
+      - name: Remember downloads between builds
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            buildozer-${{ runner.os }}-
+
+      - name: Build the APK
+        run: |
+          yes | buildozer -v android debug
 
       - name: Save the APK so you can download it
         uses: actions/upload-artifact@v4
         with:
           name: flappy-apk
-          path: ${{ steps.buildozer.outputs.filename }}
+          path: bin/*.apk
