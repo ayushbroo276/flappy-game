@@ -1250,8 +1250,7 @@ async def main():
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     position = game_position(event.pos)
                     if not click_buttons(position):
-                        if game["phase"] == "dead":
-                            flap()
+                        flap()
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 click_buttons(game_position(event.pos))
 
